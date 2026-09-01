@@ -1,0 +1,48 @@
+## Derleme ve Çıktı Dosyaları (En kritik kısım)
+bin/
+obj/
+
+## Hassas Ayar ve Konfigürasyon Dosyaları
+appsettings.json
+appsettings.Development.json
+
+## Veritabanı Dosyaları
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+## Visual Studio / VS Code / Rider Geçici Dosyaları
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## OS Dosyaları
+.DS_Store
+Thumbs.db
+
+## Byte-compiled / optimize dosyalar
+__pycache__/
+*.py[cod]
+*$py.class
+
+## Sanal Ortamlar (Virtual Environments)
+.venv/
+venv/
+env/
+ENV/
+
+## Çıktı ve Geçici Test Görselleri
+output/
+temp/
+processed/
+
+## IDE ve Sistem Dosyaları
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

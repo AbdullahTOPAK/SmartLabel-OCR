@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Etiket Veritabanı Yönetim Sistemi</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root { --bg: #ffffff; --card: #ffffff; --text: #000000; --border: #000000; --gray: #f0f0f0; --dark-gray: #333333; --error: #d93025; --success: #1e8e3e; }
+        
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: var(--text); padding: 40px 20px; display: flex; flex-direction: column; align-items: center; margin: 0; }
+        
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid var(--border); padding-bottom: 10px; width: 100%; max-width: 900px; text-transform: uppercase; letter-spacing: 1px; }
+        .header h1 { margin: 0; font-size: 22px; }
+        .header p { margin: 5px 0 0 0; font-size: 13px; color: var(--dark-gray); }
+        
+        .drop-zone { width: 100%; max-width: 900px; padding: 40px; border: 2px dashed var(--border); background: var(--bg); text-align: center; cursor: pointer; transition: background 0.2s; position: relative; box-sizing: border-box; }
+        .drop-zone:hover { background: var(--gray); }
+        .drop-zone input[type="file"] { position: absolute; width: 100%; height: 100%; top: 0; left: 0; opacity: 0; cursor: pointer; }
+        
+        .queue-container { width: 100%; max-width: 900px; margin-top: 20px; display: none; border: 1px solid var(--border); padding: 15px; box-sizing: border-box; background: var(--gray); }
+        .queue-header { font-weight: bold; font-size: 14px; margin-bottom: 10px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
+        
+        .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
+        .file-tag { display: inline-flex; align-items: center; gap: 8px; background: var(--bg); padding: 4px 10px; font-size: 12px; border: 1px solid var(--border); color: var(--text); }
+        .remove-tag-btn { background: none; border: none; font-size: 16px; font-weight: bold; cursor: pointer; color: var(--error); padding: 0; line-height: 1; margin-top: -2px; }
+        .remove-tag-btn:hover { color: var(--text); }
+        
+        /* Dinamik Prompt Tasarımı */
+        .prompt-box { margin-bottom: 15px; width: 100%; box-sizing: border-box; }
+        .prompt-label { font-size: 12px; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; display: block; color: var(--dark-gray); }
+        .prompt-textarea { width: 100%; padding: 10px; border: 1px solid var(--border); outline: none; font-family: monospace; font-size: 13px; box-sizing: border-box; resize: vertical; min-height: 60px; background: var(--bg); color: var(--text); }
+        .prompt-textarea:focus { border-width: 2px; }
+
+        .btn-process { width: 100%; padding: 12px; background: var(--text); color: var(--bg); border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; font-size: 14px; transition: 0.2s; }
+        .btn-process:hover { background: var(--dark-gray); }
+
+        .progress-container { width: 100%; max-width: 900px; margin-top: 20px; display: none; }
+        .progress-bar-bg { width: 100%; background-color: var(--bg); border: 1px solid var(--border); height: 20px; margin-bottom: 5px; box-sizing: border-box; }
+        .progress-bar-fill { height: 100%; background-color: var(--text); width: 0%; transition: width 0.3s; }
+        .progress-text { font-size: 13px; font-weight: bold; text-align: right; text-transform: uppercase;}
+
+        .controls { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 900px; margin-top: 20px; background: var(--bg); padding: 15px 20px; border: 1px solid var(--border); box-sizing: border-box; gap: 10px; flex-wrap: wrap; }
+        .search-box { flex: 1; min-width: 250px; }
+        .search-box input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); outline: none; font-size: 14px; box-sizing: border-box; border-radius: 0; }
+        
+        .limit-box { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: bold; text-transform: uppercase; }
+        .limit-box select { padding: 8px; border: 1px solid var(--border); outline: none; border-radius: 0; cursor: pointer; }
+        .limit-box input[type="number"] { padding: 8px; border: 1px solid var(--border); outline: none; border-radius: 0; width: 60px; display: none; }
+        
+        .action-buttons { display: flex; gap: 10px; }
+        .btn { padding: 8px 15px; border: 1px solid var(--border); border-radius: 0; cursor: pointer; font-weight: bold; font-size: 13px; background: var(--bg); color: var(--text); text-transform: uppercase; transition: 0.2s; }
+        .btn:hover { background: var(--text); color: var(--bg); }
+        .btn-hide { display: none; }
+        
+        .results-container { width: 100%; max-width: 900px; margin-top: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .result-card { display: flex; background: var(--card); border: 1px solid var(--border); padding: 15px; gap: 20px; align-items: flex-start; }
+        .result-image { width: 120px; height: 120px; object-fit: contain; border: 1px solid var(--border); background: var(--bg); padding: 5px; }
+        .result-content { flex: 1; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; width: 100%; }
+        .result-title { font-weight: bold; margin-bottom: 10px; color: var(--text); font-size: 14px; text-transform: uppercase; border-bottom: 1px solid var(--border); width: 100%; padding-bottom: 5px; display: flex; justify-content: space-between; }
+        .status-badge { padding: 2px 8px; font-size: 11px; color: var(--bg); }
+        .status-success { background: var(--success); }
+        .status-error { background: var(--error); }
+        
+        .result-text { font-size: 13px; white-space: pre-wrap; background: var(--bg); padding: 10px; border: 1px solid var(--border); max-height: 150px; overflow-y: auto; margin: 0; width: 100%; box-sizing: border-box; font-family: monospace; }
+        .btn-copy { margin-top: 10px; background: var(--gray); border: 1px solid var(--border); padding: 6px 12px; font-size: 12px; cursor: pointer; text-transform: uppercase; transition: 0.2s; }
+        .btn-copy:hover { background: var(--text); color: var(--bg); }
+
+        .summary-report { width: 100%; max-width: 900px; margin-top: 30px; border: 2px solid var(--border); padding: 20px; box-sizing: border-box; display: none; background: var(--bg); }
+        .summary-title { font-weight: bold; font-size: 16px; text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .summary-stats { display: flex; gap: 20px; font-size: 14px; margin-bottom: 20px; font-weight: bold; }
+        .stat-success { color: var(--success); }
+        .stat-error { color: var(--error); }
+        .summary-actions { display: flex; gap: 10px; }
+        .btn-export-success { background: var(--success); color: var(--bg); border: 1px solid var(--success); cursor: pointer; padding: 10px; font-weight: bold; }
+        .btn-retry-failed { background: var(--error); color: var(--bg); border: 1px solid var(--error); cursor: pointer; padding: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="text-align: left;">
+            <h1 style="margin:0;">Etiket Veritabanı Yönetim Sistemi</h1>
+            <p style="margin:5px 0 0 0;">Dinamik Yapay Zeka Komut (Prompt) Destekli Akıllı Analiz Aracı</p>
+        </div>
+        <a href="history.html" class="btn" style="text-decoration: none;"> Geçmiş İşlemler</a>
+    </div>
+
+    <div class="drop-zone" id="dropZone">
+        <h3 style="margin:0; font-size: 16px;">GÖRSELLERİ BURAYA SÜRÜKLEYİN VEYA SEÇİN</h3>
+        <p style="margin-top:10px; font-size:12px; color:var(--dark-gray);">Desteklenen formatlar: PNG, JPEG</p>
+        <input type="file" id="fileInput" accept="image/png, image/jpeg" multiple>
+    </div>
+
+    <div class="queue-container" id="queueContainer">
+        <div class="queue-header">
+            <span>Bekleyen Dosyalar: <span id="queueCount">0</span></span>
+        </div>
+        <div class="tags" id="queueTags"></div>
+        
+        <!-- YENİ: Dinamik Prompt Kutusu -->
+        <div class="prompt-box">
+            <label class="prompt-label" for="customPrompt">Yapay Zeka Talimatı (Dinamik Prompt):</label>
+            <textarea id="customPrompt" class="prompt-textarea">Output ONLY the extracted raw text.</textarea>
+        </div>
+
+        <button class="btn-process" id="processBtn" onclick="processQueue()">METİN ÇIKARTMA İŞLEMİNİ BAŞLAT</button>
+    </div>
+
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+        <div class="progress-text" id="progressText">İŞLENİYOR: 0%</div>
+    </div>
+
+    <div class="controls">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Dosya adı ile ara...">
+        </div>
+        <div class="limit-box">
+            GÖSTERİM SINIRI:
+            <select id="limitSelect" onchange="handleLimitChange()">
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="50">50</option>
+                <option value="all" selected>TÜMÜ</option>
+                <option value="custom">ÖZEL...</option>
+            </select>
+            <input type="number" id="customLimitInput" min="1" placeholder="Sayı">
+        </div>
+        <div class="action-buttons">
+            <button class="btn" onclick="searchFiles()">Listele</button>
+            <button class="btn btn-hide" id="hideBtn" onclick="hideAll()">Gizle</button>
+        </div>
+    </div>
+
+    <div class="results-container" id="resultsContainer"></div>
+
+    <div class="summary-report" id="summaryReport">
+        <div class="summary-title">İŞLEM SONUÇ RAPORU</div>
+        <div class="summary-stats">
+            <span class="stat-success">BAŞARILI: <span id="successCount">0</span></span>
+            <span class="stat-error">BAŞARISIZ (HATA): <span id="errorCount">0</span></span>
+        </div>
+        <div class="summary-actions">
+            <button class="btn-export-success" onclick="exportSuccessful()">BAŞARILILARI EXCEL'E AKTAR</button>
+            <button class="btn-retry-failed" id="retryBtn" onclick="retryFailed()" style="display:none;">BAŞARISIZLARI TEKRAR DENE</button>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const queueContainer = document.getElementById('queueContainer');
+        const queueTags = document.getElementById('queueTags');
+        const queueCount = document.getElementById('queueCount');
+        const processBtn = document.getElementById('processBtn');
+        const customPromptInput = document.getElementById('customPrompt'); // Yeni Prompt Referansı
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const searchInput = document.getElementById('searchInput');
+        const limitSelect = document.getElementById('limitSelect');
+        const customLimitInput = document.getElementById('customLimitInput');
+        const hideBtn = document.getElementById('hideBtn');
+        const summaryReport = document.getElementById('summaryReport');
+        
+        let appData = [];
+
+        fileInput.addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            files.forEach(file => {
+                appData.push({
+                    id: Date.now() + Math.random().toString(16).slice(2),
+                    file: file,
+                    fileName: file.name,
+                    text: "",
+                    imageUrl: URL.createObjectURL(file),
+                    date: "-",
+                    status: "pending" 
+                });
+            });
+
+            updateQueueUI();
+            fileInput.value = ''; 
+        });
+        
+
+        function removeFromQueue(id) {
+            appData = appData.filter(item => item.id !== id);
+            updateQueueUI(); 
+        }
+
+        function updateQueueUI() {
+            const pendingItems = appData.filter(item => item.status === 'pending');
+            
+            if(pendingItems.length > 0) {
+                queueContainer.style.display = 'block';
+                queueCount.innerText = pendingItems.length;
+                queueTags.innerHTML = pendingItems.map(item => 
+                    `<span class="file-tag">${item.fileName} <button class="remove-tag-btn" title="Kuyruktan Çıkar" onclick="removeFromQueue('${item.id}')">&times;</button></span>`
+                ).join('');
+            } else {
+                queueContainer.style.display = 'none';
+            }
+        }
+
+        async function processQueue() {
+            const pendingItems = appData.filter(item => item.status === 'pending');
+            if(pendingItems.length === 0) return;
+
+            // Kullanıcının yazdığı promptu alıyoruz
+            const currentPrompt = customPromptInput.value.trim();
+
+            processBtn.disabled = true;
+            progressContainer.style.display = 'block';
+            
+            for (let i = 0; i < pendingItems.length; i++) {
+                const item = pendingItems[i];
+                const formData = new FormData();
+                formData.append("file", item.file);
+                
+                // Promptu FormData içine ekliyoruz
+                if (currentPrompt !== "") {
+                    formData.append("customPrompt", currentPrompt);
+                }
+
+                try {
+                    const response = await fetch('http://localhost:5165/api/Label/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        item.status = "error";
+                        if (response.status === 429) {
+                            item.text = `HATA 429: API Kotası Aşıldı. Lütfen bekleyin.`;
+                        } else if (response.status === 503) {
+                            item.text = `HATA 503: Google Gemini Sunucuları Meşgul.`;
+                        } else {
+                            item.text = `Sunucu Hatası. (HTTP Kod: ${response.status})`;
+                        }
+                    } else {
+                        let data;
+                        try {
+                            data = await response.json();
+                        } catch (parseError) {
+                            item.status = "error";
+                            item.text = "HATA: Sunucudan gelen cevap JSON formatında değil (Bozuk Veri).";
+                            continue;
+                        }
+
+                        const returnedText = data.extractedText || "";
+                        
+                        if (returnedText.trim() === "" || returnedText.includes("API_HATASI") || returnedText.includes("HATA")) {
+                            item.status = "error";
+                            item.text = returnedText !== "" ? returnedText : "HATA: Çıktı metni boş döndü.";
+                        } else {
+                            item.status = "success";
+                            item.text = returnedText;
+                            item.date = new Date().toLocaleString('tr-TR');
+                        }
+                    }
+                } catch (error) {
+                    item.status = "error";
+                    item.text = "BAĞLANTI HATASI: API'ye ulaşılamıyor (Backend kapalı olabilir).";
+                }
+
+                const currentPercent = Math.round(((i + 1) / pendingItems.length) * 100);
+                progressBar.style.width = currentPercent + '%';
+                progressText.innerText = `İŞLENİYOR: ${i + 1} / ${pendingItems.length} (${currentPercent}%)`;
+            }
+
+            progressText.innerText = "İŞLEM TAMAMLANDI.";
+            processBtn.disabled = false;
+            
+            updateQueueUI(); 
+            updateSummaryReport(); 
+        }
+
+        function renderCards(dataArray) {
+            resultsContainer.innerHTML = ''; 
+            hideBtn.style.display = 'block';
+            
+            if(dataArray.length === 0) {
+                resultsContainer.innerHTML = '<p style="text-align:center; font-size:13px; border:1px solid var(--border); padding:20px;">Görüntülenecek veri bulunamadı.</p>';
+                return;
+            }
+
+            dataArray.forEach(item => {
+                const badge = item.status === 'success' 
+                    ? `<span class="status-badge status-success">BAŞARILI</span>` 
+                    : `<span class="status-badge status-error">HATALI</span>`;
+
+                const cardHTML = `
+                    <div class="result-card">
+                        <img src="${item.imageUrl}" class="result-image" alt="Etiket">
+                        <div class="result-content">
+                            <div class="result-title">
+                                <span>${item.fileName}</span>
+                                ${badge}
+                            </div>
+                            <div class="result-text">${item.text}</div>
+                            <button class="btn btn-copy" onclick="copyText(this)">METNİ KOPYALA</button>
+                        </div>
+                    </div>
+                `;
+                resultsContainer.insertAdjacentHTML('beforeend', cardHTML);
+            });
+        }
+
+        function handleLimitChange() {
+            if(limitSelect.value === 'custom') {
+                customLimitInput.style.display = 'inline-block';
+                customLimitInput.focus();
+            } else {
+                customLimitInput.style.display = 'none';
+                customLimitInput.value = ''; 
+            }
+        }
+
+        function searchFiles() {
+            const query = searchInput.value.toLowerCase();
+            let limit = 'all';
+
+            if(limitSelect.value === 'custom') {
+                const customVal = customLimitInput.value;
+                if(customVal && !isNaN(customVal) && customVal > 0) {
+                    limit = parseInt(customVal);
+                }
+            } else if (limitSelect.value !== 'all') {
+                limit = parseInt(limitSelect.value);
+            }
+            
+            let filteredData = appData.filter(item => item.status !== 'pending');
+            
+            if(query !== '') {
+                filteredData = filteredData.filter(item => item.fileName.toLowerCase().includes(query));
+            }
+
+            if(limit !== 'all' && limit > 0) {
+                filteredData = filteredData.slice(0, limit);
+            }
+            
+            renderCards(filteredData);
+        }
+
+        function hideAll() {
+            resultsContainer.innerHTML = '';
+            hideBtn.style.display = 'none';
+        }
+
+        function updateSummaryReport() {
+            const successItems = appData.filter(item => item.status === 'success');
+            const errorItems = appData.filter(item => item.status === 'error');
+
+            if(successItems.length > 0 || errorItems.length > 0) {
+                summaryReport.style.display = 'block';
+            }
+
+            document.getElementById('successCount').innerText = successItems.length;
+            document.getElementById('errorCount').innerText = errorItems.length;
+
+            const retryBtn = document.getElementById('retryBtn');
+            if(errorItems.length > 0) {
+                retryBtn.style.display = 'block';
+            } else {
+                retryBtn.style.display = 'none';
+            }
+        }
+
+        function exportSuccessful() {
+            const successItems = appData.filter(item => item.status === 'success');
+            if(successItems.length === 0) return alert("Dışa aktarılacak başarılı veri bulunamadı.");
+            
+            const excelReadyData = successItems.map(item => ({
+                "Dosya Adı": item.fileName,
+                "Okunan Metin": item.text,
+                "İşlem Tarihi": item.date
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(excelReadyData);
+            const wb = XLSX.utils.book_new();
+            ws['!cols'] = [{wch: 30}, {wch: 100}, {wch: 20}]; 
+
+            XLSX.utils.book_append_sheet(wb, ws, "Başarılı Etiketler");
+            XLSX.writeFile(wb, "Sistem_Ciktisi_Basarili.xlsx");
+        }
+
+        function retryFailed() {
+            appData.forEach(item => {
+                if(item.status === 'error') {
+                    item.status = 'pending';
+                    item.text = "";
+                }
+            });
+            
+            hideAll();
+            updateSummaryReport();
+            updateQueueUI();
+            processQueue();
+        }
+
+        function copyText(button) {
+            const textToCopy = button.previousElementSibling.innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const originalText = button.innerHTML;
+                button.innerHTML = "KOPYALANDI ✔";
+                button.style.background = "var(--text)";
+                button.style.color = "var(--bg)";
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.style.background = "var(--gray)";
+                    button.style.color = "var(--text)";
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>
